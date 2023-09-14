@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file_regex=get_file_regex();
     let data_regex=get_data_regex();
 
-
+    // create 100 threads to unzip the same file for illustrative purpose
     rayon::scope( |s: &Scope| {
         for _thread in 0..100 {
             s.spawn( |_s| {
