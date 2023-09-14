@@ -24,7 +24,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file_regex=get_file_regex();
     let data_regex=get_data_regex();
 
-    process_zip(&file,&file_regex,&data_regex)?;
+
+    rayon::scope( |s: &Scope| {
+        for _thread in 0..100 {
+            s.spawn( |_s| {
+                process_zip(&file,&file_regex,&data_regex).unwrap();
+            })
+        }
+    });
 
     Ok(())
 }
