@@ -16,18 +16,29 @@ use rayon::prelude::*;
 use rayon::Scope;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let path = Path::new("data/example.zip");
+    let threads = 10;
 
-    // Open the ZIP file for reading.
-    let file = File::open(&path)?;
+    // create as many files as threads to avoid collision 
+    for thread in 0..threads {
+        let path_str=format!("data/example_{:02}.zip",thread);
 
-    let file_regex=get_file_regex();
-    let data_regex=get_data_regex();
+        create_zip(&path_str)?;
+    }
 
-    // create 100 threads to unzip the same file for illustrative purpose
+    // create threads to unzip the same file contents for illustrative purpose
+    println!("start!!!");
     rayon::scope( |s: &Scope| {
-        for _thread in 0..100 {
-            s.spawn( |_s| {
+        for thread in 0..threads {
+            let path_str=format!("data/example_{:02}.zip",thread);
+            let path = Path::new(&path_str);
+
+            // Open the ZIP file for reading.
+            let file = File::open(&path).unwrap();
+
+            let file_regex=get_file_regex();
+            let data_regex=get_data_regex();
+
+            s.spawn( move |_s| {
                 process_zip(&file,&file_regex,&data_regex).unwrap();
             })
         }
@@ -49,8 +60,15 @@ fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex)
         file.read_to_string(&mut s)?;
         print!("{}",s);
         s.lines()
-            .map(|line| data_regex.captures(line))
-            .for_each(|x| println!("{:?}",x));
+            .map(|line| data_regex.captures(line).unwrap())
+            .for_each(|captures| 
+                for capture_name in data_regex.capture_names() {  
+                    match capture_name {
+                        None => print!(""),
+                    Some(capture_name) => println!("{} {}" ,capture_name, &captures[capture_name]), 
+                    }
+                }
+            );
     }
     Ok(())
 }
@@ -76,16 +94,17 @@ fn create_zip( path : &String) -> Result<(),Box<dyn Error>>
 {
     fs::create_dir_all("data")?;
 
-    {
     let file = File::create(&path)?;
 
     let mut zip = ZipWriter::new(file);
 
     zip.start_file("readme.txt", FileOptions::default())?;
-    zip.write_all(b"Hello, World!\n")?;
-    zip.finish()?;
-    
-    println!("Zip file created successfully!");
+
+    for n in 0..10 {
+        let line = format!("Hello, World! {}\n",n);
+        zip.write_all(line.as_bytes())?;
     }
+        zip.finish()?;
+        println!("Zip file created successfully!");
     Ok(())
 }
