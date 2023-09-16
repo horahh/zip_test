@@ -15,6 +15,18 @@ use regex::RegexBuilder;
 use rayon::prelude::*;
 use rayon::Scope;
 
+use std::sync::{Mutex,Arc};
+
+//pub struct FileParser {
+//    data_re : regex::Regex,
+//    file_re : regex::Regex,
+//    output_file: Rc::<Mutex<File>>,
+//}
+//
+//pub trait FileParser {
+//
+//}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let threads = 10;
 
@@ -27,6 +39,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // create threads to unzip the same file contents for illustrative purpose
     println!("start!!!");
+
+    let output_file = "output.csv";
+    let mut file = File::create(output_file)?;
+    let out_file_mutex = Arc::new(Mutex::new(file));
+
+
     rayon::scope( |s: &Scope| {
         for thread in 0..threads {
             let path_str=format!("data/example_{:02}.zip",thread);
@@ -38,8 +56,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             let file_regex=get_file_regex();
             let data_regex=get_data_regex();
 
-            s.spawn( move |_s| {
-                process_zip(&file,&file_regex,&data_regex).unwrap();
+            let out_file_mutex=Arc::clone(&out_file_mutex);
+
+            s.spawn(  move |_s| {
+                process_zip(&file,&file_regex,&data_regex,&out_file_mutex).unwrap();
             })
         }
     });
@@ -47,7 +67,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex) -> Result<(),Box<dyn Error>> {
+fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>) -> Result<(),Box<dyn Error>> {
     let mut archive = ZipArchive::new(file)?;
     // Iterate through all the files in the ZIP archive.
     for n in 0..archive.len() {
@@ -58,14 +78,17 @@ fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex)
         println!("File name: {}", file.name());
         let mut s :String=String::from("");
         file.read_to_string(&mut s)?;
-        print!("{}",s);
+        //print!("{}",s);
         s.lines()
             .map(|line| data_regex.captures(line).unwrap())
             .for_each(|captures| 
                 for capture_name in data_regex.capture_names() {  
                     match capture_name {
-                        None => print!(""),
-                    Some(capture_name) => println!("{} {}" ,capture_name, &captures[capture_name]), 
+                        None => (),
+                        Some(capture_name) =>  {
+                            let line = format!("{},{}\n",capture_name, &captures[capture_name]);
+                            output_file.lock().unwrap().write_all(line.as_bytes()).expect("Cannot write file");
+                        }
                     }
                 }
             );
@@ -104,7 +127,7 @@ fn create_zip( path : &String) -> Result<(),Box<dyn Error>>
         let line = format!("Hello, World! {}\n",n);
         zip.write_all(line.as_bytes())?;
     }
-        zip.finish()?;
-        println!("Zip file created successfully!");
+    zip.finish()?;
+    println!("Zip file [{}] created successfully!",path);
     Ok(())
 }
