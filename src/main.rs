@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let out_file_mutex=Arc::clone(&out_file_mutex);
 
             s.spawn(  move |_s| {
-                process_zip(&file,&file_regex,&data_regex,&out_file_mutex).unwrap();
+                process_zip(&file,&file_regex,&data_regex,&out_file_mutex,&path_str).unwrap();
             })
         }
     });
@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>) -> Result<(),Box<dyn Error>> {
+fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>,file_name: &String) -> Result<(),Box<dyn Error>> {
     let mut archive = ZipArchive::new(file)?;
     // Iterate through all the files in the ZIP archive.
     for n in 0..archive.len() {
@@ -86,7 +86,7 @@ fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex,
                     match capture_name {
                         None => (),
                         Some(capture_name) =>  {
-                            let line = format!("{},{}\n",capture_name, &captures[capture_name]);
+                            let line = format!("{},{},{}\n",capture_name, &captures[capture_name],file_name);
                             output_file.lock().unwrap().write_all(line.as_bytes()).expect("Cannot write file");
                         }
                     }
