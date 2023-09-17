@@ -15,9 +15,12 @@ use rayon::Scope;
 
 use std::sync::{Mutex,Arc};
 
-const FILE_LINES : i32 = 1000;
-const THREADS :i32 = 10;
+const FILE_LINES : i32 = 10_000;
+const THREADS :i32 = 100;
+const INPUT_FILES_PER_THREAD : i32 = 1;
+const INPUT_FILES : i32 = THREADS*INPUT_FILES_PER_THREAD;
 const DATA_DIR : &str = "data";
+const OUTPUT_NAME: &str = "output.csv";
 //pub struct FileParser {
 //    data_re : regex::Regex,
 //    file_re : regex::Regex,
@@ -31,23 +34,23 @@ const DATA_DIR : &str = "data";
 fn main() -> Result<(), Box<dyn Error>> {
 
     // create as many files as threads to avoid collision 
-    for thread in 0..THREADS {
-        let path_str=format!("{}/example_{:02}.zip",DATA_DIR,thread);
+    //for thread in 0..INPUT_FILES {
+    //    let path_str=format!("{}/example_{:04}.zip",DATA_DIR,thread);
 
-        create_zip(&path_str)?;
-    }
+    //    create_zip(&path_str)?;
+    //}
 
     // create threads to unzip the same file contents for illustrative purpose
     //println!("start!!!");
 
-    let output_file = "output.csv";
-    let file = File::create(output_file)?;
+    let output_file_path : String = format!("{}/{}",DATA_DIR,OUTPUT_NAME);
+    let file = File::create(output_file_path)?;
     let out_file_mutex = Arc::new(Mutex::new(file));
 
 
     rayon::scope( |s: &Scope| {
         for thread in 0..THREADS {
-            let path_str=format!("data/example_{:02}.zip",thread);
+            let path_str=format!("{}/example_{:04}.zip",DATA_DIR,thread);
             let path = Path::new(&path_str);
 
             // Open the ZIP file for reading.
@@ -79,19 +82,24 @@ fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex,
         let mut s :String=String::from("");
         file.read_to_string(&mut s)?;
         //print!("{}",s);
+        let mut buffer = String::from("");
         s.lines()
             .map(|line| data_regex.captures(line).unwrap())
-            .for_each(|captures| 
+            .for_each(|captures| {
                 for capture_name in data_regex.capture_names() {  
                     match capture_name {
                         None => (),
                         Some(capture_name) =>  {
                             let line = format!("{},{},{}\n",capture_name, &captures[capture_name],file_name);
-                            output_file.lock().unwrap().write_all(line.as_bytes()).expect("Cannot write file");
+                            buffer.push_str(&line);
+                            //output_file.lock().unwrap().write_all(line.as_bytes()).expect("Cannot write file");
                         }
                     }
                 }
+        }
             );
+        let mut file_handle = output_file.lock().unwrap();
+        file_handle.write_all(buffer.as_bytes()).expect("Cannot write file");
     }
     Ok(())
 }
