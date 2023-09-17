@@ -7,16 +7,17 @@ use zip::ZipArchive;
 use zip::write::FileOptions;
 use zip::ZipWriter;
 use std::io::Write;
-use std::collections::HashSet;
 use std::fs;
 
 use regex::RegexBuilder;
 
-use rayon::prelude::*;
 use rayon::Scope;
 
 use std::sync::{Mutex,Arc};
 
+const FILE_LINES : i32 = 1000;
+const THREADS :i32 = 10;
+const DATA_DIR : &str = "data";
 //pub struct FileParser {
 //    data_re : regex::Regex,
 //    file_re : regex::Regex,
@@ -28,25 +29,24 @@ use std::sync::{Mutex,Arc};
 //}
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let threads = 10;
 
     // create as many files as threads to avoid collision 
-    for thread in 0..threads {
-        let path_str=format!("data/example_{:02}.zip",thread);
+    for thread in 0..THREADS {
+        let path_str=format!("{}/example_{:02}.zip",DATA_DIR,thread);
 
         create_zip(&path_str)?;
     }
 
     // create threads to unzip the same file contents for illustrative purpose
-    println!("start!!!");
+    //println!("start!!!");
 
     let output_file = "output.csv";
-    let mut file = File::create(output_file)?;
+    let file = File::create(output_file)?;
     let out_file_mutex = Arc::new(Mutex::new(file));
 
 
     rayon::scope( |s: &Scope| {
-        for thread in 0..threads {
+        for thread in 0..THREADS {
             let path_str=format!("data/example_{:02}.zip",thread);
             let path = Path::new(&path_str);
 
@@ -75,7 +75,7 @@ fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex,
         if file_regex.find(file.name()).unwrap().is_empty() {
             continue;
         }
-        println!("File name: {}", file.name());
+        //println!("File name: {}", file.name());
         let mut s :String=String::from("");
         file.read_to_string(&mut s)?;
         //print!("{}",s);
@@ -115,7 +115,7 @@ fn get_data_regex() -> regex::Regex {
 
 fn create_zip( path : &String) -> Result<(),Box<dyn Error>>
 {
-    fs::create_dir_all("data")?;
+    fs::create_dir_all(DATA_DIR)?;
 
     let file = File::create(&path)?;
 
@@ -123,11 +123,11 @@ fn create_zip( path : &String) -> Result<(),Box<dyn Error>>
 
     zip.start_file("readme.txt", FileOptions::default())?;
 
-    for n in 0..10 {
+    for n in 0..FILE_LINES {
         let line = format!("Hello, World! {}\n",n);
         zip.write_all(line.as_bytes())?;
     }
     zip.finish()?;
-    println!("Zip file [{}] created successfully!",path);
+    //println!("Zip file [{}] created successfully!",path);
     Ok(())
 }
