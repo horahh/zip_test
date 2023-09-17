@@ -15,3 +15,5 @@ Cargo.lock
 # data files
 data/
 output.csv
+perf.*
+flamegraph.svg

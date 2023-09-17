@@ -16,9 +16,9 @@ use rayon::Scope;
 use std::sync::{Mutex,Arc};
 
 const FILE_LINES : i32 = 10_000;
-const THREADS :i32 = 100;
-const INPUT_FILES_PER_THREAD : i32 = 1;
-const INPUT_FILES : i32 = THREADS*INPUT_FILES_PER_THREAD;
+const THREADS :i32 = 10;
+const INPUT_FILES_PER_THREAD : i32 = 1000;
+const TOTAL_INPUT_FILES : i32 = THREADS*INPUT_FILES_PER_THREAD;
 const DATA_DIR : &str = "data";
 const OUTPUT_NAME: &str = "output.csv";
 //pub struct FileParser {
@@ -34,14 +34,13 @@ const OUTPUT_NAME: &str = "output.csv";
 fn main() -> Result<(), Box<dyn Error>> {
 
     // create as many files as threads to avoid collision 
-    //for thread in 0..INPUT_FILES {
-    //    let path_str=format!("{}/example_{:04}.zip",DATA_DIR,thread);
+    //for thread in 0..TOTAL_INPUT_FILES {
+    //    let path_str=format!("{}/example_{:05}.zip",DATA_DIR,thread);
 
     //    create_zip(&path_str)?;
     //}
 
-    // create threads to unzip the same file contents for illustrative purpose
-    //println!("start!!!");
+    //create threads to unzip the same file contents for illustrative purpose
 
     let output_file_path : String = format!("{}/{}",DATA_DIR,OUTPUT_NAME);
     let file = File::create(output_file_path)?;
@@ -50,11 +49,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     rayon::scope( |s: &Scope| {
         for thread in 0..THREADS {
-            let path_str=format!("{}/example_{:04}.zip",DATA_DIR,thread);
-            let path = Path::new(&path_str);
-
-            // Open the ZIP file for reading.
-            let file = File::open(&path).unwrap();
+            let start_file_index=INPUT_FILES_PER_THREAD*thread;
 
             let file_regex=get_file_regex();
             let data_regex=get_data_regex();
@@ -62,7 +57,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             let out_file_mutex=Arc::clone(&out_file_mutex);
 
             s.spawn(  move |_s| {
-                process_zip(&file,&file_regex,&data_regex,&out_file_mutex,&path_str).unwrap();
+                let _process_results=(start_file_index..start_file_index+INPUT_FILES_PER_THREAD)
+                    .map( |file_index| format!("{}/example_{:05}.zip",DATA_DIR,file_index))
+                    .map( |path_str| {
+                        let path = Path::new(&path_str);
+                        // Open the ZIP file for reading.
+                        let file = File::open(&path).unwrap();
+                        process_zip(&file,&file_regex,&data_regex,&out_file_mutex,&path_str).unwrap() 
+                    }
+                    );
             })
         }
     });
