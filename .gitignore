@@ -17,3 +17,4 @@ data/
 output.csv
 perf.*
 flamegraph.svg
+graphs/
