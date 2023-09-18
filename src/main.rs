@@ -12,35 +12,30 @@ use std::fs;
 use regex::RegexBuilder;
 
 use rayon::Scope;
-
 use std::sync::{Mutex,Arc};
-
-use std::sync::RwLock;
 
 const FILE_LINES : i32 = 10_000;
 const THREADS :i32 = 15;
-const INPUT_FILES_PER_THREAD : i32 = 10;
+const INPUT_FILES_PER_THREAD : i32 = 100;
 const TOTAL_INPUT_FILES : i32 = THREADS*INPUT_FILES_PER_THREAD;
 const DATA_DIR : &str = "data";
 const OUTPUT_NAME: &str = "output.csv";
-//pub struct FileParser {
-//    data_re : regex::Regex,
-//    file_re : regex::Regex,
-//    output_file: Rc::<Mutex<File>>,
-//}
-//
-//pub trait FileParser {
-//
-//}
 
-fn main() -> Result<(), Box<dyn Error>> {
+pub fn main() -> Result<(), Box<dyn Error>> {
+    create_files(TOTAL_INPUT_FILES)?;
+    extract_files(THREADS,INPUT_FILES_PER_THREAD)
+}
 
+
+pub fn create_files(total_input_files: i32 ) -> Result<(), Box<dyn Error>> {
     // create as many files as threads to avoid collision 
-//    for thread in 0..TOTAL_INPUT_FILES {
-//        let path_str=format!("{}/example_{:06}.zip",DATA_DIR,thread);
-//
-//        create_zip(&path_str)?;
-//    }
+    for thread in 0..total_input_files {
+        let path_str=format!("{}/example_{:06}.zip",DATA_DIR,thread);
+        create_zip(&path_str)?;
+    }
+    Ok(())
+}
+pub fn extract_files(threads: i32, input_files_per_thread: i32) -> Result<(), Box<dyn Error>> {
 
     //create threads to unzip the same file contents for illustrative purpose
 
@@ -48,23 +43,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file = File::create(output_file_path)?;
     let out_file_mutex = Arc::new(Mutex::new(file));
 
-    let file_regex=get_file_regex();
-    let data_regex=get_data_regex();
 
-    let file_regex=Arc::new(&file_regex);
-    let data_regex=Arc::new(&data_regex);
+    //let file_regex=Arc::new(&file_regex);
+    //let data_regex=Arc::new(&data_regex);
 
     rayon::scope( |s: &Scope| {
 
 
 
-        for thread in 0..THREADS {
-            let start_file_index=INPUT_FILES_PER_THREAD*thread;
+        for thread in 0..threads {
+            let start_file_index=input_files_per_thread*thread;
 
             let out_file_mutex=Arc::clone(&out_file_mutex);
 
-            let file_regex=file_regex.clone();
-            let data_regex=data_regex.clone();
+    let file_regex=get_file_regex();
+    let data_regex=get_data_regex();
 
             s.spawn(  move |_s| {
                 let _process_results: Vec<_>=(start_file_index..start_file_index+INPUT_FILES_PER_THREAD)
@@ -83,7 +76,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn process_zip(file: &File,file_regex: &Arc<&regex::Regex>, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>,file_name: &String) -> Result<(),Box<dyn Error>> {
+
+fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>,file_name: &String) -> Result<(),Box<dyn Error>> {
     let mut archive = ZipArchive::new(file)?;
     // Iterate through all the files in the ZIP archive.
     for n in 0..archive.len() {
@@ -152,3 +146,23 @@ fn create_zip( path : &String) -> Result<(),Box<dyn Error>>
     //println!("Zip file [{}] created successfully!",path);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+#[test] 
+    fn extract_10_threads_100_files() -> Result<(), Box<dyn Error>>{
+        extract_files(10,100)
+    }
+
+#[test] 
+    fn extract_20_threads_50_files() -> Result<(), Box<dyn Error>>{
+        extract_files(20,50)
+    }
+#[test] 
+    fn extract_40_threads_25_files() -> Result<(), Box<dyn Error>>{
+        extract_files(20,25)
+    }
+}
+
