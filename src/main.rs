@@ -21,7 +21,6 @@ const TOTAL_INPUT_FILES : i32 = THREADS*INPUT_FILES_PER_THREAD;
 const DATA_DIR : &str = "data";
 const OUTPUT_NAME: &str = "output.csv";
 
-
 pub fn main() -> Result<(), Box<dyn Error>> {
     //create_files(TOTAL_INPUT_FILES)?;
     extract_files(THREADS,INPUT_FILES_PER_THREAD)
