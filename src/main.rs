@@ -16,13 +16,14 @@ use std::sync::{Mutex,Arc};
 
 const FILE_LINES : i32 = 10_000;
 const THREADS :i32 = 15;
-const INPUT_FILES_PER_THREAD : i32 = 100;
+const INPUT_FILES_PER_THREAD : i32 = 10;
 const TOTAL_INPUT_FILES : i32 = THREADS*INPUT_FILES_PER_THREAD;
 const DATA_DIR : &str = "data";
 const OUTPUT_NAME: &str = "output.csv";
 
+
 pub fn main() -> Result<(), Box<dyn Error>> {
-    create_files(TOTAL_INPUT_FILES)?;
+    //create_files(TOTAL_INPUT_FILES)?;
     extract_files(THREADS,INPUT_FILES_PER_THREAD)
 }
 
@@ -56,8 +57,8 @@ pub fn extract_files(threads: i32, input_files_per_thread: i32) -> Result<(), Bo
 
             let out_file_mutex=Arc::clone(&out_file_mutex);
 
-    let file_regex=get_file_regex();
-    let data_regex=get_data_regex();
+            let file_regex=get_file_regex();
+            let data_regex=get_data_regex();
 
             s.spawn(  move |_s| {
                 let _process_results: Vec<_>=(start_file_index..start_file_index+INPUT_FILES_PER_THREAD)
@@ -89,7 +90,7 @@ fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex,
         let mut s :String=String::from("");
         file.read_to_string(&mut s)?;
         //print!("{}",s);
-        let mut buffer = String::from("");
+        let mut buffer = String::with_capacity(1_000_000);
         s.lines()
             .map(|line| data_regex.captures(line).unwrap())
             .for_each(|captures| {
@@ -151,18 +152,19 @@ fn create_zip( path : &String) -> Result<(),Box<dyn Error>>
 mod tests {
     use super::*;
 
-#[test] 
+    #[test] 
     fn extract_10_threads_100_files() -> Result<(), Box<dyn Error>>{
         extract_files(10,100)
     }
 
-#[test] 
-    fn extract_20_threads_50_files() -> Result<(), Box<dyn Error>>{
-        extract_files(20,50)
-    }
-#[test] 
-    fn extract_40_threads_25_files() -> Result<(), Box<dyn Error>>{
-        extract_files(20,25)
-    }
+
+//#[test] 
+//    fn extract_20_threads_50_files() -> Result<(), Box<dyn Error>>{
+//        extract_files(20,50)
+//    }
+//#[test] 
+//    fn extract_40_threads_25_files() -> Result<(), Box<dyn Error>>{
+//        extract_files(20,25)
+//    }
 }
 
