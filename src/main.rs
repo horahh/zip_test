@@ -65,7 +65,7 @@ pub fn extract_files(threads: i32, input_files_per_thread: i32) -> Result<(), Bo
                     .map( |path_str| {
                         let path = Path::new(&path_str);
                         // Open the ZIP file for reading.
-                        let file = File::open(&path).unwrap();
+                        let file = File::open(path).unwrap();
                         process_zip(&file,&file_regex,&data_regex,&out_file_mutex,&path_str)
                     }
                     ).collect();
@@ -131,7 +131,7 @@ fn create_zip( path : &String) -> Result<(),Box<dyn Error>>
 {
     fs::create_dir_all(DATA_DIR)?;
 
-    let file = File::create(&path)?;
+    let file = File::create(path)?;
 
     let mut zip = ZipWriter::new(file);
 
