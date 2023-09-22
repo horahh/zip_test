@@ -18,6 +18,9 @@ zip = "0.6.6"
 [profile.bench]
 debug = true
 
+[profile.release]
+debug = true
+
 #[[bin]]
 #name="zip_test"
 #path="src/benchmark.rs"

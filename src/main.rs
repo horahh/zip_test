@@ -76,7 +76,6 @@ pub fn extract_files(threads: i32, input_files_per_thread: i32) -> Result<(), Bo
     Ok(())
 }
 
-
 fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>,file_name: &String) -> Result<(),Box<dyn Error>> {
     let mut archive = ZipArchive::new(file)?;
     // Iterate through all the files in the ZIP archive.

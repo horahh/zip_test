@@ -9,7 +9,7 @@ fn my_benchmark_function(c: &mut Criterion) {
     group.bench_function("extract_process_zip_10_1", |b| {
         b.iter(|| {
             // Code to be benchmarked
-            extract_files(10,1);
+            let _ = extract_files(10,1);
         });
     });
     group.finish();
