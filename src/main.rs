@@ -6,6 +6,7 @@ use std::{path::Path, fs::File};
 use zip::ZipArchive;
 use zip::write::FileOptions;
 use zip::ZipWriter;
+use zip::result::ZipError;
 use std::io::Write;
 use std::fs;
 
@@ -13,6 +14,7 @@ use regex::RegexBuilder;
 
 use rayon::Scope;
 use std::sync::{Mutex,Arc};
+
 
 const FILE_LINES : i32 = 10_000;
 const THREADS :i32 = 15;
@@ -36,21 +38,16 @@ pub fn create_files(total_input_files: i32 ) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 pub fn extract_files(threads: i32, input_files_per_thread: i32) -> Result<(), Box<dyn Error>> {
-
     //create threads to unzip the same file contents for illustrative purpose
 
     let output_file_path : String = format!("{}/{}",DATA_DIR,OUTPUT_NAME);
     let file = File::create(output_file_path)?;
     let out_file_mutex = Arc::new(Mutex::new(file));
 
-
     //let file_regex=Arc::new(&file_regex);
     //let data_regex=Arc::new(&data_regex);
 
     rayon::scope( |s: &Scope| {
-
-
-
         for thread in 0..threads {
             let start_file_index=input_files_per_thread*thread;
 
@@ -66,7 +63,7 @@ pub fn extract_files(threads: i32, input_files_per_thread: i32) -> Result<(), Bo
                         let path = Path::new(&path_str);
                         // Open the ZIP file for reading.
                         let file = File::open(path).unwrap();
-                        process_zip(&file,&file_regex,&data_regex,&out_file_mutex,&path_str)
+                        process_zip_par(&file,&file_regex,&data_regex,&out_file_mutex,&path_str)
                     }
                     ).collect();
             })
@@ -75,6 +72,58 @@ pub fn extract_files(threads: i32, input_files_per_thread: i32) -> Result<(), Bo
 
     Ok(())
 }
+
+fn read_file_from_zip(n:usize,archive:&mut ZipArchive<&File>) -> Result<(String,String), ZipError> {
+
+    let mut file = archive.by_index(n);
+    match file {
+    Ok(mut file) => 
+    {
+        let file_name = file.name().to_string();
+        let mut file_string=String::from("");
+        file.read_to_string(&mut file_string);
+        Ok((file_name,file_string))
+    }
+    Err(e) => Err(e)
+    }
+}
+
+fn process_zip_par(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>,file_name: &String) -> Result<(),Box<dyn Error>> {
+    let mut archive = ZipArchive::new(file)?;
+    //let mut _errors= vec![];
+    // Iterate through all the files in the ZIP archive.
+    let zip_len = archive.len();
+
+    let _results : Vec<_>=  (0..zip_len)
+    .map( |n|   read_file_from_zip(n,&mut archive))
+    .filter_map( |result| result.ok())
+    .map(|(file_name,file_content)|  {
+        let line_results: Vec<_> = file_content.lines()
+            .map(|line| data_regex.captures(line).unwrap())
+            .map(|captures| 
+            {
+                let capture_results: Vec<_> = data_regex.capture_names()
+                .map(|capture_name|
+                {  
+                    match capture_name {
+                        Some(capture_name) =>  String::from(format!("{},{},{}\n",capture_name, &captures[capture_name],file_name)),
+                        None => String::from(""),
+                    }
+                }).collect();
+                capture_results
+            }).flatten().collect();
+            line_results
+    }).flatten()
+    .map(|capture_results| 
+        {
+            let mut file_handle = output_file.lock().unwrap();
+            file_handle.write_all(capture_results.as_bytes()).expect("cannot write file")
+        })
+    .collect();
+
+    Ok(())
+}
+
 
 fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>,file_name: &String) -> Result<(),Box<dyn Error>> {
     let mut archive = ZipArchive::new(file)?;
@@ -98,7 +147,6 @@ fn process_zip(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex,
                         Some(capture_name) =>  {
                             let line = format!("{},{},{}\n",capture_name, &captures[capture_name],file_name);
                             buffer.push_str(&line);
-                            //output_file.lock().unwrap().write_all(line.as_bytes()).expect("Cannot write file");
                         }
                     }
                 }
