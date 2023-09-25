@@ -94,7 +94,7 @@ fn process_zip_par(file: &File,file_regex: &regex::Regex, data_regex: &regex::Re
     // Iterate through all the files in the ZIP archive.
     let zip_len = archive.len();
 
-    let _results : Vec<_>=  (0..archive.len())
+    let _results : String=  (0..archive.len())
     .map( |n|   read_file_from_zip(n,&mut archive))
     .filter_map( |result| result.ok())
     .map(|(file_name,file_content)|  {
@@ -114,10 +114,10 @@ fn process_zip_par(file: &File,file_regex: &regex::Regex, data_regex: &regex::Re
             }).flatten().collect::<Vec<String>>().join("\n");
             line_results
     })
-    .collect();
+    .collect::<Vec<String>>().join("\n");
 
     let mut file_handle = output_file.lock().unwrap();
-    let _r :Vec<_>= _results.iter().map(|capture_results| file_handle.write_all(capture_results.as_bytes()).expect("cannot write file")).collect();
+    let _r :Vec<_>= _results.lines().map(|capture_results| file_handle.write_all(capture_results.as_bytes()).expect("cannot write file")).collect();
 
     Ok(())
 }
