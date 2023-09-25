@@ -94,11 +94,11 @@ fn process_zip_par(file: &File,file_regex: &regex::Regex, data_regex: &regex::Re
     // Iterate through all the files in the ZIP archive.
     let zip_len = archive.len();
 
-    let _results : Vec<_>=  (0..zip_len)
+    let _results : Vec<_>=  (0..archive.len())
     .map( |n|   read_file_from_zip(n,&mut archive))
     .filter_map( |result| result.ok())
     .map(|(file_name,file_content)|  {
-        let line_results: Vec<_> = file_content.lines()
+        let line_results: String = file_content.lines()
             .map(|line| data_regex.captures(line).unwrap())
             .map(|captures| 
             {
@@ -111,9 +111,9 @@ fn process_zip_par(file: &File,file_regex: &regex::Regex, data_regex: &regex::Re
                     }
                 }).collect();
                 capture_results
-            }).flatten().collect();
+            }).flatten().collect::<Vec<String>>().join("\n");
             line_results
-    }).flatten()
+    })
     .collect();
 
     let mut file_handle = output_file.lock().unwrap();
