@@ -117,7 +117,8 @@ fn process_zip_par(file: &File,file_regex: &regex::Regex, data_regex: &regex::Re
     .collect::<Vec<String>>().join("\n");
 
     let mut file_handle = output_file.lock().unwrap();
-    let _r :Vec<_>= _results.lines().map(|capture_results| file_handle.write_all(capture_results.as_bytes()).expect("cannot write file")).collect();
+    //let _r :Vec<_>= _results.lines().map(|capture_results| file_handle.write_all(capture_results.as_bytes()).expect("cannot write file")).collect();
+    file_handle.write_all(_results.as_bytes())?;
 
     Ok(())
 }
