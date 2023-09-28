@@ -73,28 +73,26 @@ pub fn extract_files(threads: i32, input_files_per_thread: i32) -> Result<(), Bo
     Ok(())
 }
 
+#[inline(always)]
 fn read_file_from_zip(n:usize,archive:&mut ZipArchive<&File>) -> Result<(String,String), ZipError> {
 
-    let mut file = archive.by_index(n);
+    let file = archive.by_index(n);
     match file {
     Ok(mut file) => 
     {
         let file_name = file.name().to_string();
         let mut file_string=String::from("");
-        file.read_to_string(&mut file_string);
+        let _r = file.read_to_string(&mut file_string);
         Ok((file_name,file_string))
     }
     Err(e) => Err(e)
     }
 }
-
 fn process_zip_par(file: &File,file_regex: &regex::Regex, data_regex: &regex::Regex, output_file : &Arc::<Mutex<File>>,file_name: &String) -> Result<(),Box<dyn Error>> {
     let mut archive = ZipArchive::new(file)?;
-    //let mut _errors= vec![];
     // Iterate through all the files in the ZIP archive.
-    let zip_len = archive.len();
 
-    let _results : String=  (0..archive.len())
+    let _results  =  (0..archive.len())
     .map( |n|   read_file_from_zip(n,&mut archive))
     .filter_map( |result| result.ok())
     .map(|(file_name,file_content)|  {
@@ -102,23 +100,24 @@ fn process_zip_par(file: &File,file_regex: &regex::Regex, data_regex: &regex::Re
             .map(|line| data_regex.captures(line).unwrap())
             .map(|captures| 
             {
-                let capture_results: Vec<_> = data_regex.capture_names()
+                let capture_results  = data_regex.capture_names()
                 .map(|capture_name|
                 {  
                     match capture_name {
-                        Some(capture_name) =>  String::from(format!("{},{},{}\n",capture_name, &captures[capture_name],file_name)),
+                        Some(capture_name) =>  String::from(format!("{},{},{}",capture_name, &captures[capture_name],file_name)),
                         None => String::from(""),
                     }
-                }).collect();
+                }).reduce(|cur, nxt| cur +&nxt).unwrap();
                 capture_results
-            }).flatten().collect::<Vec<String>>().join("\n");
+            }).reduce(|cur,nxt| cur+&nxt).unwrap();
             line_results
     })
-    .collect::<Vec<String>>().join("\n");
+    .reduce(|cur,nxt| cur+&nxt).unwrap();
 
     let mut file_handle = output_file.lock().unwrap();
     //let _r :Vec<_>= _results.lines().map(|capture_results| file_handle.write_all(capture_results.as_bytes()).expect("cannot write file")).collect();
-    file_handle.write_all(_results.as_bytes())?;
+        //.filter_map(|result| result.ok())
+    file_handle.write_all(_results.as_bytes()); 
 
     Ok(())
 }
